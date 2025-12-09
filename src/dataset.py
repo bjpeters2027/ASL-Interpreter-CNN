@@ -1,3 +1,5 @@
+# src/dataset.py
+
 from typing import Tuple, List
 import tensorflow as tf
 from .config import CONFIG
@@ -5,34 +7,50 @@ from .config import CONFIG
 
 def get_datasets() -> Tuple[tf.data.Dataset, tf.data.Dataset, List[str]]:
     """
-    Loads train and validation datasets from directory structure:
+    Loads training and validation datasets from a single directory with
+    subfolders per class, e.g.:
 
-        data/train/A, ..., data/train/Z
-        data/val/A,   ..., data/val/Z
+        data/
+          A/
+          B/
+          ...
+          Y/
+
+    We let Keras internally split into train/validation using validation_split.
     """
-    train_ds = tf.keras.utils.image_dataset_from_directory(
-        CONFIG.train_dir,
+
+    # First create the raw training dataset
+    raw_train_ds = tf.keras.utils.image_dataset_from_directory(
+        CONFIG.data_dir,                     # root = "data/"
         labels="inferred",
         label_mode="int",
         image_size=(CONFIG.img_height, CONFIG.img_width),
         batch_size=CONFIG.batch_size,
-        shuffle=True
+        shuffle=True,
+        validation_split=0.20,              # 80% train
+        subset="training",
+        seed=1337,                          # same seed for train/val
     )
 
-    val_ds = tf.keras.utils.image_dataset_from_directory(
-        CONFIG.val_dir,
+    # Grab the class names BEFORE caching/prefetching
+    class_names: List[str] = raw_train_ds.class_names  # e.g., ['A', 'B', ..., 'Y']
+
+    # Create the raw validation dataset
+    raw_val_ds = tf.keras.utils.image_dataset_from_directory(
+        CONFIG.data_dir,
         labels="inferred",
         label_mode="int",
         image_size=(CONFIG.img_height, CONFIG.img_width),
         batch_size=CONFIG.batch_size,
-        shuffle=False
+        shuffle=False,
+        validation_split=0.20,              # 20% validation
+        subset="validation",
+        seed=1337,
     )
 
-    # Optional performance tweaks
+    # Now apply cache/prefetch to both
     AUTOTUNE = tf.data.AUTOTUNE
-    train_ds = train_ds.cache().prefetch(buffer_size=AUTOTUNE)
-    val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
-
-    class_names = train_ds.class_names  # ['A', 'B', ..., 'Z']
+    train_ds = raw_train_ds.cache().prefetch(buffer_size=AUTOTUNE)
+    val_ds = raw_val_ds.cache().prefetch(buffer_size=AUTOTUNE)
 
     return train_ds, val_ds, class_names

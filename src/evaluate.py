@@ -1,3 +1,5 @@
+# src/evaluate.py
+
 from typing import List, Tuple
 
 import numpy as np
@@ -17,6 +19,9 @@ def evaluate_model(
       - y_true
       - y_pred
       - confusion matrix (cm)
+
+    Handles the case where not all classes appear in the validation set by
+    explicitly specifying the full label set to sklearn.
     """
     y_true = []
     y_pred = []
@@ -29,10 +34,22 @@ def evaluate_model(
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
 
-    if print_report:
-        print(classification_report(y_true, y_pred, target_names=class_names))
+    # Full label set: 0..(num_classes-1)
+    num_classes = len(class_names)
+    labels = list(range(num_classes))
 
-    cm = confusion_matrix(y_true, y_pred)
+    if print_report:
+        print(
+            classification_report(
+                y_true,
+                y_pred,
+                labels=labels,
+                target_names=class_names,
+                zero_division=0,  # avoid warnings when a class has no samples
+            )
+        )
+
+    cm = confusion_matrix(y_true, y_pred, labels=labels)
     return y_true, y_pred, cm
 
 

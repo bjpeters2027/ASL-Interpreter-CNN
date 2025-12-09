@@ -1,3 +1,5 @@
+# src/train.py
+
 import os
 from typing import Tuple
 
@@ -7,43 +9,41 @@ import tensorflow as tf
 from .config import CONFIG
 
 
-def _flatten_model_weights(model: tf.keras.Model) -> np.ndarray:
-    """
-    Flattens all trainable weights into a single 1D numpy array.
-    """
-    flat_tensors = [tf.reshape(w, [-1]) for w in model.trainable_weights]
-    flat = tf.concat(flat_tensors, axis=0)
-    return flat.numpy()
-
-
 class WeightLoggerCallback(tf.keras.callbacks.Callback):
     """
-    Logs flattened weights at each epoch into a .npy file so that
-    we can later do PCA over the training trajectory (for the loss surface).
+    Logs a flattened copy of ALL model weights at:
+      - the start of training
+      - the end of each epoch
+
+    Saves them as a (T, D) numpy array:
+      T = number of snapshots (epochs + 1)
+      D = total number of parameters
     """
 
     def __init__(self, run_name: str):
         super().__init__()
         self.run_name = run_name
-        self._weights_history = []
+        self._weights_list = []
+
+    def _flatten_weights(self) -> np.ndarray:
+        weights = self.model.get_weights()  # list of numpy arrays
+        flat = np.concatenate([w.reshape(-1) for w in weights])
+        return flat
 
     def on_train_begin(self, logs=None):
-        # Log initial weights at epoch 0
-        if self.model is not None:
-            self._weights_history.append(_flatten_model_weights(self.model))
+        self._weights_list.append(self._flatten_weights())
 
     def on_epoch_end(self, epoch, logs=None):
-        if self.model is not None:
-            self._weights_history.append(_flatten_model_weights(self.model))
+        self._weights_list.append(self._flatten_weights())
 
     def on_train_end(self, logs=None):
-        if not self._weights_history:
+        if not self._weights_list:
             return
+        weights_arr = np.stack(self._weights_list, axis=0)  # (T, D)
         os.makedirs(CONFIG.logs_dir, exist_ok=True)
-        path = os.path.join(CONFIG.logs_dir, f"{self.run_name}_weights.npy")
-        arr = np.stack(self._weights_history, axis=0)  # shape: (epochs+1, num_params)
-        np.save(path, arr)
-        print(f"[WeightLogger] Saved weight trajectory to {path}")
+        out_path = os.path.join(CONFIG.logs_dir, f"{self.run_name}_weights.npy")
+        np.save(out_path, weights_arr)
+        print(f"[WeightLogger] Saved weight trajectory to {out_path}")
 
 
 def compile_and_train(
@@ -53,38 +53,43 @@ def compile_and_train(
     run_name: str,
 ) -> Tuple[tf.keras.callbacks.History, str, str]:
     """
-    Compiles and trains a model with standard settings.
+    Compiles and trains the given model on (train_ds, val_ds).
 
     Returns:
-      - history  (Keras History object)
-      - model_path (where best weights are saved)
-      - weights_traj_path (where flattened weights history is saved)
+        history         - Keras History object
+        best_model_path - path to the saved best model (.keras)
+        weights_path    - path to the saved weight trajectory (.npy)
     """
-    os.makedirs(CONFIG.model_dir, exist_ok=True)
-    os.makedirs(CONFIG.logs_dir, exist_ok=True)
 
+    # Compile
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=CONFIG.learning_rate),
-        loss="sparse_categorical_crossentropy",
+        loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
         metrics=["accuracy"],
     )
 
-    model_path = os.path.join(CONFIG.model_dir, f"{run_name}.keras")
-    csv_log_path = os.path.join(CONFIG.logs_dir, f"{run_name}.csv")
-
-    weight_logger = WeightLoggerCallback(run_name=run_name)
+    # Where to save the best model
+    os.makedirs(CONFIG.model_dir, exist_ok=True)
+    best_model_path = os.path.join(CONFIG.model_dir, f"{run_name}.keras")
 
     callbacks = [
         tf.keras.callbacks.ModelCheckpoint(
-            filepath=model_path,
+            best_model_path,
             monitor="val_accuracy",
             save_best_only=True,
+            save_weights_only=False,
             verbose=1,
         ),
-        tf.keras.callbacks.CSVLogger(csv_log_path),
-        weight_logger,
+        tf.keras.callbacks.EarlyStopping(
+            monitor="val_loss",
+            patience=3,
+            restore_best_weights=False,
+            verbose=1,
+        ),
+        WeightLoggerCallback(run_name),
     ]
 
+    # Train
     history = model.fit(
         train_ds,
         validation_data=val_ds,
@@ -92,5 +97,7 @@ def compile_and_train(
         callbacks=callbacks,
     )
 
-    weights_traj_path = os.path.join(CONFIG.logs_dir, f"{run_name}_weights.npy")
-    return history, model_path, weights_traj_path
+    # Weight trajectory path (created by WeightLoggerCallback)
+    weights_path = os.path.join(CONFIG.logs_dir, f"{run_name}_weights.npy")
+
+    return history, best_model_path, weights_path
