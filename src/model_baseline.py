@@ -4,9 +4,6 @@ from .augmentations import build_augmentation_layer
 
 
 def build_baseline_cnn(num_classes: int = CONFIG.num_classes) -> tf.keras.Model:
-    """
-    A small custom CNN for 26-class ASL classification.
-    """
     inputs = tf.keras.Input(
         shape=(CONFIG.img_height, CONFIG.img_width, CONFIG.num_channels)
     )

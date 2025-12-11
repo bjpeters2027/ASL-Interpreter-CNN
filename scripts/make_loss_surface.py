@@ -5,7 +5,7 @@ import os
 from src.config import CONFIG
 from src.loss_surface import plot_loss_surface
 
-# We'll visualize the transfer-learning model
+
 RUN_NAME = "transfer_mobilenetv2"
 
 

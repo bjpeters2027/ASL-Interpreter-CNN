@@ -10,15 +10,6 @@ from .config import CONFIG
 
 
 class WeightLoggerCallback(tf.keras.callbacks.Callback):
-    """
-    Logs a flattened copy of ALL model weights at:
-      - the start of training
-      - the end of each epoch
-
-    Saves them as a (T, D) numpy array:
-      T = number of snapshots (epochs + 1)
-      D = total number of parameters
-    """
 
     def __init__(self, run_name: str):
         super().__init__()
@@ -26,7 +17,7 @@ class WeightLoggerCallback(tf.keras.callbacks.Callback):
         self._weights_list = []
 
     def _flatten_weights(self) -> np.ndarray:
-        weights = self.model.get_weights()  # list of numpy arrays
+        weights = self.model.get_weights()
         flat = np.concatenate([w.reshape(-1) for w in weights])
         return flat
 
@@ -52,23 +43,13 @@ def compile_and_train(
     val_ds: tf.data.Dataset,
     run_name: str,
 ) -> Tuple[tf.keras.callbacks.History, str, str]:
-    """
-    Compiles and trains the given model on (train_ds, val_ds).
 
-    Returns:
-        history         - Keras History object
-        best_model_path - path to the saved best model (.keras)
-        weights_path    - path to the saved weight trajectory (.npy)
-    """
-
-    # Compile
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=CONFIG.learning_rate),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
         metrics=["accuracy"],
     )
 
-    # Where to save the best model
     os.makedirs(CONFIG.model_dir, exist_ok=True)
     best_model_path = os.path.join(CONFIG.model_dir, f"{run_name}.keras")
 
@@ -97,7 +78,6 @@ def compile_and_train(
         callbacks=callbacks,
     )
 
-    # Weight trajectory path (created by WeightLoggerCallback)
     weights_path = os.path.join(CONFIG.logs_dir, f"{run_name}_weights.npy")
 
     return history, best_model_path, weights_path

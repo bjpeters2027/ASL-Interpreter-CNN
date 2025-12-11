@@ -6,8 +6,6 @@ from src.config import CONFIG
 from src.prediction_surface import plot_prediction_surface
 
 
-# Choose which trained model/run to visualize:
-# "baseline_cnn" or "transfer_mobilenetv2"
 RUN_NAME = "transfer_mobilenetv2"
 
 
@@ -20,9 +18,9 @@ def main():
 
     plot_prediction_surface(
         run_name=RUN_NAME,
-        grid_size=25,              # resolution of the grid
-        alpha_scale=3.0,           # how far to move in PCA input space
-        max_batches_for_pca=10,    # how many batches to use for PCA
+        grid_size=25,
+        alpha_scale=3.0,
+        max_batches_for_pca=10,
         out_path=out_path,
     )
 

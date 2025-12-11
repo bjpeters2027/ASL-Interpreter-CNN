@@ -14,15 +14,6 @@ def evaluate_model(
     class_names: List[str],
     print_report: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Evaluates the model on the validation dataset and returns:
-      - y_true
-      - y_pred
-      - confusion matrix (cm)
-
-    Handles the case where not all classes appear in the validation set by
-    explicitly specifying the full label set to sklearn.
-    """
     y_true = []
     y_pred = []
 
@@ -34,7 +25,6 @@ def evaluate_model(
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
 
-    # Full label set: 0..(num_classes-1)
     num_classes = len(class_names)
     labels = list(range(num_classes))
 
@@ -45,7 +35,7 @@ def evaluate_model(
                 y_pred,
                 labels=labels,
                 target_names=class_names,
-                zero_division=0,  # avoid warnings when a class has no samples
+                zero_division=0,
             )
         )
 

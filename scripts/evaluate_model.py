@@ -10,7 +10,7 @@ from src.dataset import get_datasets
 from src.evaluate import evaluate_model, plot_confusion_matrix
 
 
-# Change this to "baseline_cnn" if you want to evaluate that instead
+
 RUN_NAME = "transfer_mobilenetv2"
 
 
@@ -39,7 +39,7 @@ def main():
         title=f"Confusion Matrix - {RUN_NAME}",
     )
 
-    # Optional: save the confusion matrix figure
+
     plots_dir = os.path.join(CONFIG.experiments_dir, "plots")
     os.makedirs(plots_dir, exist_ok=True)
     out_path = os.path.join(plots_dir, f"confusion_matrix_{RUN_NAME}.png")

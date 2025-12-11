@@ -4,9 +4,6 @@ from .augmentations import build_augmentation_layer
 
 
 def build_transfer_model(num_classes: int = CONFIG.num_classes) -> tf.keras.Model:
-    """
-    Transfer learning model based on MobileNetV2, fine-tuned for ASL.
-    """
     inputs = tf.keras.Input(
         shape=(CONFIG.img_height, CONFIG.img_width, CONFIG.num_channels)
     )
@@ -19,7 +16,6 @@ def build_transfer_model(num_classes: int = CONFIG.num_classes) -> tf.keras.Mode
         include_top=False,
         weights="imagenet"
     )
-    # Start with base frozen; you can later unfreeze some top layers.
     base_model.trainable = False
 
     x = base_model(x, training=False)
